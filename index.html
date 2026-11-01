@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Söz Atölyesi</title>
+<style>
+:root{--bg:#f3efe6;--ink:#1d2320;--mut:#5d675f;--card:#fffdf8;--line:#d8d0bd;--acc:#1f5c4d;--acc2:#e6efe9}
+@media(prefers-color-scheme:dark){:root{--bg:#161a18;--ink:#ece8dc;--mut:#98a39b;--card:#1e2421;--line:#333c37;--acc:#7cc5ae;--acc2:#24322d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Georgia,"Times New Roman",serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:1.9rem;margin:.2em 0 .1em;letter-spacing:-.01em}
+.sub{color:var(--mut);margin:0 0 18px}
+label{display:block;font-weight:bold;margin:14px 0 6px}
+textarea,input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+textarea{min-height:200px;resize:vertical;line-height:1.6}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:inherit;border:0;border-radius:8px;padding:12px 16px;background:var(--acc);color:var(--bg);cursor:pointer;margin-top:14px}
+button.sec{background:var(--acc2);color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+details{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+summary{cursor:pointer;font-weight:bold}
+.out{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:12px}
+.out h3{margin:0 0 6px;font-size:1.05rem}
+.out pre{white-space:pre-wrap;word-break:break-word;margin:0;font:inherit}
+.out button{margin-top:8px;padding:7px 12px;font-size:.9rem}
+#st{color:var(--mut);margin-top:10px;min-height:1.4em}
+</style>
+</head>
+<body>
+<main>
+<h1>Söz Atölyesi</h1>
+<p class="sub">Sözlerini yaz; düzenlesin, tamamlasın, Suno ve video promptlarını hazırlasın.</p>
+
+<details id="ayar">
+<summary>API ayarı (bir kere gir, tarayıcıda saklanır)</summary>
+<div class="row">
+<div><label for="prov">Sağlayıcı</label>
+<select id="prov"><option value="gemini">Gemini (ücretsiz katman var)</option><option value="claude">Claude</option></select></div>
+<div><label for="model">Model</label><input id="model"></div>
+</div>
+<label for="key">API anahtarı</label>
+<input id="key" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Anahtar sadece bu tarayıcıda kalır">
+<button id="test" class="sec" type="button">Bağlantıyı test et</button>
+<div id="tst" style="margin-top:8px;word-break:break-word"></div>
+</details>
+
+<label for="soz">Şarkı sözlerin</label>
+<textarea id="soz" placeholder="Sözleri buraya yaz. Yarım bırakabilirsin."></textarea>
+
+<div class="row">
+<div><label for="tur">Tür / his (isteğe bağlı)</label><input id="tur" placeholder="ör. hüzünlü arabesk-pop"></div>
+<div><label for="mod">Söz işlemi</label>
+<select id="mod"><option value="duzenle">Düzenle, anlamı koru</option><option value="tamamla">Eksikleri tamamla</option><option value="yeniden">Daha güçlü yeniden yaz</option></select></div>
+</div>
+
+<button id="go">Hazırla</button>
+<button id="clr" class="sec">Temizle</button>
+<div id="st" role="status"></div>
+<div id="res"></div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const DEF={gemini:"gemini-2.5-flash",claude:"claude-sonnet-4-6"};
+function ld(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sv(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+$("prov").value=ld("prov")||"gemini";
+$("model").value=ld("model_"+$("prov").value)||DEF[$("prov").value];
+$("key").value=ld("key_"+$("prov").value)||"";
+$("soz").value=ld("soz")||"";
+if(!$("key").value)$("ayar").open=true;
+$("prov").onchange=()=>{const p=$("prov").value;sv("prov",p);$("model").value=ld("model_"+p)||DEF[p];$("key").value=ld("key_"+p)||""};
+$("soz").oninput=()=>sv("soz",$("soz").value);
+$("test").onclick=async()=>{
+  const k=$("key").value.trim(),m=$("model").value.trim(),o=$("tst");
+  o.textContent="Test ediliyor… (anahtar uzunluğu: "+k.length+", başı: "+k.slice(0,4)+")";
+  try{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(m)+"?key="+encodeURIComponent(k));
+    const d=await r.json();
+    o.textContent=r.ok?"Çalışıyor: "+d.name:"Google cevap verdi ama hata: "+(d.error?.message||r.status);
+  }catch(e){o.textContent="İstek Google'a ulaşamadı ("+e.name+": "+e.message+"). Sayfayı hangi adresten açtığına bak: "+location.protocol+"//"+location.host}
+};
+$("clr").onclick=()=>{$("soz").value="";sv("soz","");$("res").innerHTML="";$("st").textContent=""};
+
+const SYS=`Sen deneyimli bir Türkçe şarkı sözü yazarı, aranjör ve müzik yapımcısısın. Kullanıcının verdiği sözleri işle ve SADECE geçerli JSON döndür (markdown yok). Şema:
+{"sozler":"işlenmiş sözler, [Verse], [Chorus], [Bridge] gibi etiketlerle",
+"degisiklikler":"neleri neden değiştirdiğin, 2-4 cümle",
+"beste":{"tarz":"","tempo_bpm":"","tonalite":"","akor_onerisi":"","enstrumanlar":"","vokal":"","yapi":""},
+"suno_style":"Suno 'Style of Music' alanı için İngilizce, virgülle ayrılmış, 200 karakteri geçmeyen prompt",
+"suno_lyrics":"Suno 'Lyrics' alanına yapıştırılacak, meta etiketli ([Intro], [Verse 1], [Chorus] vb.) sözler",
+"video_prompt":"Google Flow (Veo) için İngilizce sinematik video prompt: sahne, kamera hareketi, ışık, atmosfer, renk paleti; şarkının hissine uygun",
+"video_sahneleri":["3-5 kısa sahne prompt'u, İngilizce"]}
+Sözlerin anlamını ve kullanıcının üslubunu koru; Türkçe hece/ölçü akışına dikkat et.`;
+
+async function ask(prompt){
+  const p=$("prov").value,m=$("model").value.trim(),k=$("key").value.trim();
+  sv("model_"+p,m);sv("key_"+p,k);
+  if(p==="gemini"){
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(k)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:SYS}]},contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{responseMimeType:"application/json"}})});
+    const d=await r.json();if(!r.ok)throw new Error("API: "+(d.error?.message||r.status));
+    const c=d.candidates&&d.candidates[0];
+    if(!c||!c.content)throw new Error("Gemini boş yanıt verdi: "+(c?.finishReason||d.promptFeedback?.blockReason||"bilinmiyor"));
+    return c.content.parts.map(x=>x.text||"").join("");
+  }
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:m,max_tokens:4000,system:SYS,messages:[{role:"user",content:prompt}]})});
+  const d=await r.json();if(!r.ok)throw new Error(d.error?.message||r.status);
+  return d.content.map(x=>x.text||"").join("");
+}
+
+function card(t,txt){
+  const d=document.createElement("div");d.className="out";
+  const h=document.createElement("h3");h.textContent=t;
+  const p=document.createElement("pre");p.textContent=txt;
+  const b=document.createElement("button");b.className="sec";b.textContent="Kopyala";
+  b.onclick=async()=>{try{await navigator.clipboard.writeText(txt);b.textContent="Kopyalandı"}catch(e){b.textContent="Kopyalanamadı"}setTimeout(()=>b.textContent="Kopyala",1500)};
+  d.append(h,p,b);$("res").append(d);
+}
+
+$("go").onclick=async()=>{
+  const soz=$("soz").value.trim();
+  if(!soz){$("st").textContent="Önce söz yaz.";return}
+  if(!$("key").value.trim()){$("st").textContent="API anahtarını gir.";$("ayar").open=true;return}
+  sv("soz",soz);$("res").innerHTML="";$("st").textContent="Hazırlanıyor…";$("go").disabled=true;
+  try{
+    const t=await ask(`İşlem: ${$("mod").selectedOptions[0].text}\nTür/his: ${$("tur").value||"belirtilmedi"}\n\nSözler:\n${soz}`);
+    const a=t.indexOf("{"),b=t.lastIndexOf("}");
+    let j;try{j=JSON.parse(t.slice(a,b+1))}catch(e){throw new Error("Yanıt JSON olarak okunamadı, tekrar bas. Ham yanıt: "+t.slice(0,200))}
+    card("Düzenlenmiş sözler",j.sozler);
+    card("Ne değişti",j.degisiklikler);
+    card("Beste önerisi",Object.entries(j.beste||{}).map(([a,b])=>a.replace(/_/g," ")+": "+b).join("\n"));
+    card("Suno: Style of Music",j.suno_style);
+    card("Suno: Lyrics",j.suno_lyrics);
+    card("Google Flow video prompt",j.video_prompt);
+    if(j.video_sahneleri?.length)card("Sahne sahne promptlar",j.video_sahneleri.map((s,i)=>(i+1)+". "+s).join("\n"));
+    $("st").textContent="Hazır.";
+  }catch(e){$("st").textContent="Hata: "+e.message}
+  $("go").disabled=false;
+};
+</script>
+</body>
+</html>
